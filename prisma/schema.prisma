@@ -1,0 +1,81 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN_TOKO
+}
+
+enum Division {
+  PENJAHIT
+  SABLON
+  PEMOTONG_BAHAN
+  QC
+  PACKING
+}
+
+enum AttendanceStatus {
+  TEPAT_WAKTU
+  TERLAMBAT
+  PULANG_AWAL
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  name      String
+  password  String
+  role      Role     @default(ADMIN_TOKO)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Shift {
+  id               String     @id @default(uuid())
+  name             String     // Contoh: "Shift Pagi (Produksi)", "Shift Siang"
+  startTime        String     // Format "HH:mm", misal "08:00"
+  endTime          String     // Format "HH:mm", misal "16:00"
+  lateGraceMinutes Int        @default(15) // Toleransi keterlambatan dalam menit
+  isActive         Boolean    @default(true)
+  employees        Employee[]
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+}
+
+model Employee {
+  id          String       @id @default(uuid())
+  code        String       @unique // Kode Pegawai, misal: "KNV-001"
+  name        String
+  division    Division
+  phone       String?
+  qrCodeToken String       @unique // Token unik untuk di-scan
+  shiftId     String?
+  shift       Shift?       @relation(fields: [shiftId], references: [id])
+  isActive    Boolean      @default(true)
+  attendances Attendance[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Attendance {
+  id              String           @id @default(uuid())
+  employeeId      String
+  employee        Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date            DateTime         @db.Date // Tanggal absensi (YYYY-MM-DD)
+  clockIn         DateTime
+  clockOut        DateTime?
+  status          AttendanceStatus @default(TEPAT_WAKTU)
+  lateMinutes     Int              @default(0)
+  workDurationMin Int?             // Total durasi kerja dalam menit
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([employeeId, date])
+}
